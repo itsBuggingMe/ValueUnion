@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ValueUnion.Generator/ValueUnion.Generator.csproj" />
+  <Project Path="ValueUnion.Tests/ValueUnion.Tests.csproj" />
+</Solution>
