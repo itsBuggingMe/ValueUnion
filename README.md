@@ -9,6 +9,7 @@ IntOrBool num = 42;
 
 int incrementedValue = num switch
 {
+    // No warning!
     int i => i + 1,
     bool b => b ? 2 : 1,
 };
