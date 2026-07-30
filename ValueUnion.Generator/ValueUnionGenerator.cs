@@ -82,6 +82,7 @@ public class ValueUnionGenerator : IIncrementalGenerator
     {
         CodeBuilder codeBuilder = CodeBuilder
             .ThreadShared
+            .AppendLine("#nullable enable")
             .If(model.Namespace is not null, model.Namespace, (n, c) => c.Append("namespace ").Append(n).AppendLine(";"))
             .AppendLine()
             .AppendLine("[global::System.Runtime.CompilerServices.Union]")
