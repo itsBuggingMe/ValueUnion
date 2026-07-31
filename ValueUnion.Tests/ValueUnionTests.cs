@@ -56,8 +56,8 @@ public class Tests
     }
 }
 
-[ValueUnion<int, float>]
+[Union<int, float>]
 partial struct TestUnion;
 
-[ValueUnion<int, bool>]
+[Union<int, bool>]
 partial struct IntOrBool;

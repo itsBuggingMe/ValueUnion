@@ -14,6 +14,6 @@ int incrementedValue = num switch
     bool b => b ? 2 : 1,
 };
 
-[ValueUnion<int, bool>]
+[Union<int, bool>]
 partial struct IntOrBool;
 ```

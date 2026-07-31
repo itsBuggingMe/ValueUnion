@@ -20,7 +20,8 @@ internal class CodeBuilder
     }
 
     public const int TabsPerIndent = 4;
-    private StringBuilder _sb = new();
+    public const int DefaultCapacity = 4 * 1024;
+    private readonly StringBuilder _sb = new(DefaultCapacity);
 
     public int Indents { get; private set; }
 
