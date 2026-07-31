@@ -36,6 +36,15 @@ public class GeneratorShapeTests
     }
 
     [Test]
+    public void UnionInGenericContainingTypeDoesNotOverlapFields()
+    {
+        GenericContainer<string>.NestedUnion value = 42;
+
+        Assert.That(value.TryGetValue(out int number), Is.True);
+        Assert.That(number, Is.EqualTo(42));
+    }
+
+    [Test]
     public void DeclarationModifiersArePreserved()
     {
         RecordUnion record = true;
@@ -119,6 +128,12 @@ public class GeneratorShapeTests
 partial class NestedContainer
 {
     [Union<int, bool>]
+    public partial struct NestedUnion;
+}
+
+partial class GenericContainer<T>
+{
+    [Union<int, T>]
     public partial struct NestedUnion;
 }
 

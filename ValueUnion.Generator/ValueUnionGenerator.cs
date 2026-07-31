@@ -83,6 +83,7 @@ public class ValueUnionGenerator : IIncrementalGenerator
         }
 
         TypeModel[] arr = new TypeModel[typeArgs.Length];
+        bool overlapFields = true;
 
         for (int i = 0; i < typeArgs.Length; i++)
         {
@@ -100,11 +101,15 @@ public class ValueUnionGenerator : IIncrementalGenerator
                 isNullableValueType
                     ? ((INamedTypeSymbol)typeArgument).TypeArguments[0].ToDisplayString(GlobalFullyQualifiedTypeNameFormat)
                     : fullName);
+            overlapFields &= typeArgument.IsUnmanagedType;
         }
 
         Stack<INamedTypeSymbol> containingTypes = new();
         for (INamedTypeSymbol? current = typeSymbol; current is not null; current = current.ContainingType)
+        {
+            overlapFields &= current.Arity == 0;
             containingTypes.Push(current);
+        }
 
         TypeDeclarationModel[] declarations = new TypeDeclarationModel[containingTypes.Count];
         int declarationIndex = 0;
@@ -118,6 +123,7 @@ public class ValueUnionGenerator : IIncrementalGenerator
             typeSymbol.ToDisplayString(FullyQualifiedTypeNameFormat),
             defaultType is null,
             defaultTypeIndex,
+            overlapFields,
             new(declarations),
             new(arr));
     }
@@ -129,29 +135,37 @@ public class ValueUnionGenerator : IIncrementalGenerator
             .AppendLine("#nullable enable")
             .If(model.Namespace is not null, model.Namespace, (n, c) => c.Append("namespace ").Append(n).AppendLine(";"))
             .AppendLine()
-                .Foreach<TypeDeclarationModel>(model.TypeDeclarations, ct, (in declaration, cb, i) => cb.If(i == model.TypeDeclarations.Length - 1, cb => cb
-                        .AppendLine("[global::System.Runtime.CompilerServices.Union]")
-                        .AppendLine("[global::System.Runtime.InteropServices.StructLayout(global::System.Runtime.InteropServices.LayoutKind.Auto)]"))
-                    .If((declaration.Modifiers & TypeDeclarationModifiers.ReadOnly) != 0, cb => cb.Append("readonly "))
-                    .If((declaration.Modifiers & TypeDeclarationModifiers.Ref) != 0, cb => cb.Append("ref "))
-                    .Append("partial ")
-                    .If((declaration.Modifiers & TypeDeclarationModifiers.Record) != 0, cb => cb.Append("record "))
-                    .If((declaration.Modifiers & TypeDeclarationModifiers.Class) != 0, cb => cb.Append("class "))
-                    .If((declaration.Modifiers & TypeDeclarationModifiers.Struct) != 0, cb => cb.Append("struct "))
-                    .If((declaration.Modifiers & TypeDeclarationModifiers.Interface) != 0, cb => cb.Append("interface "))
-                    .Append(declaration.Name)
-                    .If(i == model.TypeDeclarations.Length - 1, cb => cb.Append(" : global::System.Runtime.CompilerServices.IUnion"))
-                    .AppendLine()
-                    .Scope())
-                .AppendLine("private readonly byte _tag;")
-                .AppendLine("#nullable disable")
+            .Foreach<TypeDeclarationModel>(model.TypeDeclarations, ct, (in declaration, cb, i) => cb.If(i == model.TypeDeclarations.Length - 1, cb => cb
+                .AppendLine("[global::System.Runtime.CompilerServices.Union]")
+                .AppendLine("[global::System.Runtime.InteropServices.StructLayout(global::System.Runtime.InteropServices.LayoutKind.Auto)]"))
+                .If((declaration.Modifiers & TypeDeclarationModifiers.ReadOnly) != 0, cb => cb.Append("readonly "))
+                .If((declaration.Modifiers & TypeDeclarationModifiers.Ref) != 0, cb => cb.Append("ref "))
+                .Append("partial ")
+                .If((declaration.Modifiers & TypeDeclarationModifiers.Record) != 0, cb => cb.Append("record "))
+                .If((declaration.Modifiers & TypeDeclarationModifiers.Class) != 0, cb => cb.Append("class "))
+                .If((declaration.Modifiers & TypeDeclarationModifiers.Struct) != 0, cb => cb.Append("struct "))
+                .If((declaration.Modifiers & TypeDeclarationModifiers.Interface) != 0, cb => cb.Append("interface "))
+                .Append(declaration.Name)
+                .If(i == model.TypeDeclarations.Length - 1, cb => cb.Append(" : global::System.Runtime.CompilerServices.IUnion"))
+                .AppendLine()
+                .Scope())
                 // fields
+                .AppendLine("private readonly byte _tag;")
+                .If(model.OverlapFields, cb => cb
+                    .AppendLine("private readonly Impl _inner;")
+                    .AppendLine()
+                    .AppendLine("[global::System.Runtime.InteropServices.StructLayout(global::System.Runtime.InteropServices.LayoutKind.Explicit)]")
+                    .AppendLine("private struct Impl").Scope())
+                .AppendLine("#nullable disable")
                 .Foreach<TypeModel>(model.Types, ct, (in type, cb, i) =>
-                    cb.Append("private readonly ")
-                    .Append(type.FullName).Append(" _value")
+                    cb
+                    .If(model.OverlapFields, cb => cb.AppendLine("[global::System.Runtime.InteropServices.FieldOffset(0)]"))
+                    .Append(!model.OverlapFields ? "private readonly " : "internal ")
+                    .Append(type.FullName).Append(model.OverlapFields ? " Value" : " _value")
                     .Append(i + 1)
                     .AppendLine(";"))
                 .AppendLine("#nullable enable")
+                .If(model.OverlapFields, cb => cb.Unscope())
                 .AppendLine()
                 // ctors
                 .Foreach<TypeModel>(model.Types, ct, (in type, cb, i) =>
@@ -160,26 +174,25 @@ public class ValueUnionGenerator : IIncrementalGenerator
                 .If(model.IsNullValid, cb => cb
                     .AppendLine("public readonly bool HasValue => _tag != 0;")
                     .AppendLine())
-                .AppendLine("public readonly object Value => _tag switch")
+                .AppendLine("public readonly object? Value => _tag switch")
                 .Scope()
                     // Value
                     .Foreach<TypeModel>(model.Types, ct, (in type, cb, i) =>
-                        cb.Append(GetTag(model, i)).Append(" => _value").Append(i + 1).AppendLine("!,"))
-                    .AppendLine("_ => null!,")
+                        cb.Append(GetTag(model, i)).Append(" => ").Append(model.OverlapFields ? "_inner.Value" : "_value").Append(i + 1).AppendLine("!,"))
+                    .AppendLine("_ => null,")
                 .Unscope()
                 .AppendLine(";")
                 .AppendLine()
                 // TryGet
                 .Foreach<TypeModel>(model.Types, ct, (in type, cb, i) =>
-                    cb.Append("public readonly bool TryGetValue(out ").Append(type.FullName).AppendLine(" value)")
-                        .Scope()
-                            .Append("value = _value").Append(i + 1).AppendLine(";")
-                            .Append("return _tag == ").Append(GetTag(model, i)).AppendLine(";")
-                        .Unscope())
-            .Foreach<TypeDeclarationModel>(
-                model.TypeDeclarations,
-                ct,
-                (in declaration, cb, i) => cb.Unscope());
+                cb.Append("public readonly bool TryGetValue(out ").Append(type.FullName).AppendLine(" value)")
+                    .Scope()
+                        .Append("value = ")
+                        .Append(model.OverlapFields ? "_inner.Value" : "_value").Append(i + 1)
+                        .AppendLine(";")
+                        .Append("return _tag == ").Append(GetTag(model, i)).AppendLine(";")
+                    .Unscope())
+            .Foreach<TypeDeclarationModel>(model.TypeDeclarations, ct, (in declaration, cb, i) => cb.Unscope());
 
         return new SourceOutput($"{model.FullName.Replace('<', '_').Replace('>', '_')}.g.cs", codeBuilder.ToString());
     }
@@ -202,14 +215,14 @@ public class ValueUnionGenerator : IIncrementalGenerator
             codeBuilder
                 .Append("if (value is ").Append(type.PatternTypeName).AppendLine(" v)")
                 .Scope()
-                    .Append("_value").Append(index + 1).AppendLine(" = v;")
+                    .Append(model.OverlapFields ? "_inner.Value" : "_value").Append(index + 1).AppendLine(" = v;")
                     .Append("_tag = ").Append(tag).AppendLine(";")
                 .Unscope();
         }
         else
         {
             codeBuilder
-                .Append("_value").Append(index + 1).AppendLine(" = value;")
+                .Append(model.OverlapFields ? "_inner.Value" : "_value").Append(index + 1).AppendLine(" = value;")
                 .Append("_tag = ").Append(tag).AppendLine(";");
         }
 
