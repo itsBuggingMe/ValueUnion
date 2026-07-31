@@ -83,6 +83,9 @@ partial struct CustomerId : IUnion
 
 ## Installation
 
+> [!WARNING]
+> Unions are still in preview and may still change.
+
 ```console
 dotnet add package ValueUnion
 ```
