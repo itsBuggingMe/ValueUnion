@@ -84,3 +84,17 @@ partial struct CustomerId : IUnion
 Simply apply the `[Union<>]` attribute to a partial struct declaration. You can add up to 8 generic parameters for up to 8 possible types within a union. Types can be struct, primitives, classes, anything e.g. `[Union<double, string, int, long>]`. When all union cases are unmanaged, the union's cases are overlapped to save memory (this cannot be done if case types are managed due to the GC).
 
 By default, a union also has a `null` case. Using the union example above, a `default(CustomerId)` has no active case and may warn if the null case is unhandled. You can get around this by setting a type to use in the default case with the `Default` property. If `[Union<int, Guid>(Default = typeof(int))]` was used instead, a `default(CustomerId)` would have case `int` with value `0`.
+
+```cs
+CustomerId defaultId = default;
+
+Debug.Assert(defaultId switch
+{
+    // case is int, as it is default case
+    int => true,
+    Guid => false,
+});
+
+[Union<int, Guid>(Default = typeof(int))]
+partial struct CustomerId;
+```
