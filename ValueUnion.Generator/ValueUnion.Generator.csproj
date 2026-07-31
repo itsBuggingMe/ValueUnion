@@ -6,12 +6,39 @@
     <Nullable>enable</Nullable>
 	<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
 	<LangVersion>preview</LangVersion>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>ValueUnion</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Paperclip</Authors>
+    <Description>A source generator for allocation-free custom C# union types.</Description>
+    <PackageTags>union;discriminated-union;source-generator;roslyn</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/itsBuggingMe/ValueUnion</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/itsBuggingMe/ValueUnion.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)..\artifacts\packages</PackageOutputPath>
   </PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Bcl.HashCode" Version="6.0.0" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" PrivateAssets="all" />
 		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.6.0" PrivateAssets="all" />
 	</ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(OutputPath)$(AssemblyName).dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
+    <None Include="..\README.md"
+          Pack="true"
+          PackagePath=""
+          Visible="false" />
+  </ItemGroup>
 
 </Project>

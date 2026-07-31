@@ -4,7 +4,15 @@ C# 15 has finally added discrimminated unions! However, using a struct as a unio
 
 This library autogenerates that boilerplate so it's easier to use unions without allocating or errors. Simply add the `[Union<>]` attribute and mark your union struct as partial.
 
+## Installation
+
+```console
+dotnet add package ValueUnion
+```
+
 ```cs
+using ValueUnion;
+
 CustomerId id = Guid.NewGuid();
 
 string formatted = id switch
