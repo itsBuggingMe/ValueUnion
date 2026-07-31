@@ -133,7 +133,7 @@ partial class NestedContainer
 
 partial class GenericContainer<T>
 {
-    [Union<int, T>]
+    [Union<int, bool>]
     public partial struct NestedUnion;
 }
 
